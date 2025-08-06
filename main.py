@@ -107,11 +107,11 @@ for i in range(16):
 
 # --- ONE-TIME SETUP ---
 # """
-# print("Performing one-time sheet initialization for 10 teams...")
-# temp_draft_data = [[pick] for pick in full_draft_order]
-# draft_board_sheet.update(f"T3:T{len(temp_draft_data)+2}", temp_draft_data)
-# print("Initialization complete. Please comment out the setup code.")
-# """
+#print("Performing one-time sheet initialization for 10 teams...")
+#temp_draft_data = [[pick] for pick in full_draft_order]
+#draft_board_sheet.update(f"T3:T{len(temp_draft_data)+2}", temp_draft_data)
+#print("Initialization complete. Please comment out the setup code.")
+#""""
 
 # =================================================================================
 # 7. DISCORD BOT EVENTS & TASKS
@@ -167,7 +167,7 @@ async def on_guild_join(guild):
     """
     # Create the intro message
     intro_message = """
-👋 Ayo, what's poppin', crew? It's your boy J'Dinkalage Morgoone, straight outta Boomin' U, holdin' it down in these streets.
+👋 Ayo, what's poppin', crew? Your 11th league member is here! It's your boy J'Dinkalage Morgoone, straight outta Boomin' U, holdin' it down in these streets.
 
 I'm finna run this weak-ass draft, trackin' y'all's janky picks and slappin' 'em into the Google Sheet on straight auto, no cap, fam.
 
