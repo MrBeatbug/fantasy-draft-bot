@@ -123,16 +123,35 @@ for i in range(16):
 # --- NEW BACKGROUND TASK ---
 @tasks.loop(minutes=5)
 async def check_for_slow_drafter():
-    global pings_sent
+    global pings_sent, pick_start_time # Allow modification of pick_start_time
     if current_picker_id is None or pick_start_time is None:
         return
 
-    desired_tz=pytz.timezone('America/Los_Angeles')
+    # Define the time zone (e.g., Pacific Time)
+    desired_tz = pytz.timezone('America/Los_Angeles')
     now = datetime.datetime.now(desired_tz)
-    if 0 <= now.hour < 7: # Quiet hours from 12:00 AM to 6:59 AM
-        return
 
-    time_since_pick_started = now - pick_start_time
+    # --- NEW, SMARTER QUIET HOURS LOGIC ---
+    # Check if we are currently in quiet hours (12:00 AM to 6:59 AM)
+    is_quiet_now = 0 <= now.hour < 7
+    # Check if the pick started during last night's quiet hours
+    pick_started_during_quiet = 0 <= pick_start_time.astimezone(desired_tz).hour < 7
+
+    # If the pick started during quiet hours and it's no longer quiet, reset the timer to 7 AM today.
+    # This ensures the 2-hour clock starts fresh when quiet hours end.
+    if pick_started_during_quiet and not is_quiet_now:
+        # Set the "new" start time to 7 AM of the current day in the correct time zone
+        seven_am_today = now.replace(hour=7, minute=0, second=0, microsecond=0)
+        pick_start_time = seven_am_today
+        pings_sent = 0 # Also reset pings to be safe
+
+    # If it's currently quiet hours, do nothing.
+    if is_quiet_now:
+        return
+    # ------------------------------------------------
+
+    # The rest of the logic can now proceed normally
+    time_since_pick_started = now - pick_start_time.astimezone(desired_tz)
     hours_passed = time_since_pick_started.total_seconds() / 3600
 
     intervals_passed = int(hours_passed // 2)
@@ -141,13 +160,12 @@ async def check_for_slow_drafter():
         channel = client.get_channel(DRAFT_CHANNEL_ID)
         if not channel: return
 
-        if pings_sent < 2:
+        if pings_sent < 3:
             pings_sent += 1
             await channel.send(f"⏰ Reminder! {get_mention_from_id(current_picker_id)}, you are on the clock. It has been over {pings_sent * 2} hours.")
-        elif pings_sent >= 2:
+        elif pings_sent == 3:
             pings_sent += 1
-            await channel.send(f"🚨 **FINAL WARNING!** {get_mention_from_id(current_picker_id)}, Yo, you still draggin' your feet, fam? I been told to pick, and you testin' my patience! The opps already lurkin’, ready to slide and rob yo crib, no cap. Make a move or the gang pullin’ up, and it ain’t gon’ be pretty. Who you got for me to snatch up? Hurry up, bruh! 😤")
-
+            await channel.send(f"🚨 **FINAL WARNING!** {get_mention_from_id(current_picker_id)}, you are on the clock and have been reminded multiple times. Please make your pick soon or a decision may be made by the commissioner.")
 @client.event
 async def on_ready():
     global row, col, picknum, drafted, draft_order_mentions, prow, pcol, tradecount
