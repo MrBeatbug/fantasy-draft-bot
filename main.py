@@ -3,6 +3,8 @@
 # =================================================================================
 # 1. IMPORT LIBRARIES
 # =================================================================================
+from flask import Flask
+from threading import Thread
 import gspread
 from google.oauth2.service_account import Credentials
 import discord
@@ -460,11 +462,31 @@ May the fantasy gods keep it 💯 and bless your squad. Good luck, homies! 🏆�
     
     elif command == "!ovr":
         await message.channel.send(f"The current overall pick is **#{picknum}**.")
+# =================================================================================
+# 9. WEB SERVER FOR RENDER HEALTH CHECKS
+# =================================================================================
+# This is a small web server that runs in the background. Its only purpose is to
+# respond to Render's health checks to prevent the "Port scan timeout" error.
+# It does not interfere with the Discord bot's operations.
+# =================================================================================
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "I am alive!"
+
+def run():
+    app.run(host='0.0.0.0', port=8080)
+
+def keep_alive():
+    t = Thread(name='Thread', target=run)
+    t.start()
 
 # =================================================================================
 # 8. RUN THE BOT
 # =================================================================================
 if TOKEN and SERVER_ID and SHEET_ID and DRAFT_CHANNEL_ID and DRAFT_MANAGER_IDS:
+    keep_alive() # Starts the web server in the background
     client.run(TOKEN)
 else:
     print("ERROR: One or more required environment variables are missing or invalid.")
