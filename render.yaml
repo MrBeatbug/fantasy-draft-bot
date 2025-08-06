@@ -1,0 +1,18 @@
+services:
+  - type: worker # This specifies a Background Worker
+    name: fantasy-draft-bot
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python main.py"
+    plan: free # Explicitly request the free plan
+    envVars:
+      - key: DISCORD_TOKEN
+        sync: false
+      - key: SERVER_ID
+        sync: false
+      - key: GOOGLE_SHEET_ID
+        sync: false
+      - key: DRAFT_CHANNEL_ID
+        sync: false
+      - key: DRAFT_MANAGER_IDS
+        sync: false
