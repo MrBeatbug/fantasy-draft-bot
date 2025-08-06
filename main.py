@@ -13,6 +13,7 @@ import os
 from dotenv import load_dotenv
 from thefuzz import process
 import datetime # NEW: To handle time
+import pytz
 
 # Load environment variables from a .env file for local development
 load_dotenv()
@@ -126,7 +127,8 @@ async def check_for_slow_drafter():
     if current_picker_id is None or pick_start_time is None:
         return
 
-    now = datetime.datetime.now()
+    desired_tz=pytz.timezone('America/Los_Angeles')
+    now = datetime.datetime.now(desired_tz)
     if 0 <= now.hour < 7: # Quiet hours from 12:00 AM to 6:59 AM
         return
 
