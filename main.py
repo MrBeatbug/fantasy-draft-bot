@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 from thefuzz import process
 import datetime
 import pytz
-
+import json
 # Load environment variables from a .env file for local development
 load_dotenv()
 
@@ -35,7 +35,9 @@ client = discord.Client(intents=intents)
 TEAMS_PER_LEAGUE = 10
 
 scopes = ["https://www.googleapis.com/auth/spreadsheets"]
-creds = Credentials.from_service_account_file("credentials.json", scopes=scopes)
+creds_json_str = os.getenv("GOOGLE_CREDS_JSON")
+creds_dict = json.loads(creds_json_str)
+creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
 gclient = gspread.authorize(creds)
 
 SHEET_ID = os.getenv("GOOGLE_SHEET_ID")
