@@ -286,7 +286,7 @@ Hello! I'm the draft bot. Here are my commands:
     elif command == "!draft":
         if len(parts) < 2: return
         on_the_clock_id = get_id_from_mention(draft_order_mentions[picknum - 1])
-        if message.author.id != on_the_clock_id:
+        if message.author.id != on_the_clock_id and message.author.id != COMMISSIONER_ID:
             await message.channel.send(f"Hold on, it's not your turn! We're waiting on {draft_order_mentions[picknum - 1]}.")
             return
         
@@ -347,7 +347,7 @@ May the fantasy gods keep it 💯 and bless your squad. Good luck, homies! 🏆�
         if len(parts) < 2: return
         if picknum <= 1: return
         last_picker_id = get_id_from_mention(draft_order_mentions[picknum - 2])
-        if message.author.id != last_picker_id:
+        if message.author.id != last_picker_id and message.author.id != COMMISSIONER_ID:
             await message.channel.send("Error: You can only change your own most recent pick.")
             return
 
@@ -357,7 +357,7 @@ May the fantasy gods keep it 💯 and bless your squad. Good luck, homies! 🏆�
             old_official_name = player_dict[drafted[-1]]
             drafted[-1] = new_official_name.upper()
             draft_board_sheet.update_cell(prow, pcol, new_official_name)
-            draft_board_sheet.update_cell(picknum, 18, new_official_name)
+            draft_board_sheet.update_cell(picknum + 1, 18, new_official_name)
             await message.channel.send(f"✅ **Pick Changed!** {message.author.mention} has updated their pick from **{old_official_name}** to **{new_official_name}**.")
             on_the_clock = draft_order_mentions[picknum - 1]
             await message.channel.send(f"The clock has not advanced. {on_the_clock}, you are still on the clock.")
