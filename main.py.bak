@@ -24,7 +24,6 @@ load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
 SERVER_ID = int(os.getenv("SERVER_ID", 0))
 DRAFT_CHANNEL_ID = int(os.getenv("DRAFT_CHANNEL_ID", 0))
-COMMISSIONER_ID = int(os.getenv("COMMISSIONER_ID", 0))
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -34,7 +33,6 @@ client = discord.Client(intents=intents)
 # 3. GOOGLE SHEETS & LEAGUE CONFIGURATION
 # =================================================================================
 TEAMS_PER_LEAGUE = 10
-TOTAL_ROUNDS = 18
 
 scopes = ["https://www.googleapis.com/auth/spreadsheets"]
 creds_json_str = os.getenv("GOOGLE_CREDS_JSON")
@@ -86,8 +84,7 @@ qbs = player_sheet.col_values(3)[3:]
 rbs = player_sheet.col_values(8)[3:]
 wrs = player_sheet.col_values(13)[3:]
 tes = player_sheet.col_values(18)[3:]
-kickers = player_sheet.col_values(23)[3:]
-all_players_original = qbs + rbs + wrs + tes + kickers
+all_players_original = qbs + rbs + wrs + tes
 
 player_dict = {name.upper(): name for name in all_players_original if name}
 print(f"Loaded {len(player_dict)} players.")
@@ -107,14 +104,11 @@ initial_draft_order = [get_mention_from_id(id) for id in DRAFT_MANAGER_IDS]
 
 reversed_order = initial_draft_order[::-1]
 full_draft_order = []
-for i in range(TOTAL_ROUNDS):
+for i in range(16):
     if i % 2 == 0:
         full_draft_order.extend(initial_draft_order)
     else:
         full_draft_order.extend(reversed_order)
-
-# Initialize draft order from generated list (restart will sync with sheet)
-draft_order_mentions = full_draft_order.copy()
 
 # =================================================================================
 # 7. DISCORD BOT EVENTS & TASKS
@@ -245,21 +239,8 @@ async def on_message(message):
             picknum = int(draft_board_sheet.cell(3, 17).value)
             drafted_from_sheet = draft_board_sheet.col_values(18)[2:]
             drafted = [x.upper() for x in drafted_from_sheet if x]
+            draft_order_mentions = draft_board_sheet.col_values(20)[2:]
             tradecount = len(draft_board_sheet.col_values(19)[2:])
-
-            # Read draft order from sheet
-            sheet_order = draft_board_sheet.col_values(20)[2:]
-
-            # Check if sheet has Discord mentions or plain names
-            if sheet_order and "<@" in str(sheet_order[0]):
-                # Has proper Discord mentions — use as-is
-                draft_order_mentions = sheet_order
-            else:
-                # Plain names or empty — regenerate from DRAFT_MANAGER_IDS
-                draft_order_mentions = full_draft_order.copy()
-                # Write proper mentions to sheet
-                order_data = [[m] for m in draft_order_mentions]
-                draft_board_sheet.update(f"T4:T{len(order_data) + 3}", order_data)
 
             if picknum > 1:
                 picks_done = picknum - 1
@@ -276,13 +257,13 @@ async def on_message(message):
                 else: pcol = end_col - prev_pick_in_round
             else: prow, pcol = 0, 0
 
-            total_picks = TEAMS_PER_LEAGUE * TOTAL_ROUNDS
+            total_picks = TEAMS_PER_LEAGUE * 16
             if picknum <= total_picks:
                 on_the_clock = draft_order_mentions[picknum - 1]
                 current_picker_id = get_id_from_mention(on_the_clock)
                 pick_start_time = datetime.datetime.now(pytz.utc)
                 pings_sent = 0
-
+            
             await message.channel.send(f"✅ Relaunch complete. We are at pick **#{picknum}**.")
             round_num = ((picknum - 1) // TEAMS_PER_LEAGUE) + 1
             pick_in_round_disp = ((picknum - 1) % TEAMS_PER_LEAGUE) + 1
@@ -324,7 +305,7 @@ Hello! I'm the draft bot. Here are my commands:
             prow, pcol = row, col
             picknum += 1
             
-            total_picks = TEAMS_PER_LEAGUE * TOTAL_ROUNDS
+            total_picks = TEAMS_PER_LEAGUE * 16
             if picknum > total_picks:
                 ending_message = """
 ----------------------------------------------------
@@ -440,40 +421,6 @@ May the fantasy gods keep it 💯 and bless your squad. Good luck, homies! 🏆�
     
     elif command == "!ovr":
         await message.channel.send(f"The current overall pick is **#{picknum}**.")
-
-    elif command == "!intro":
-        intro = """
-👋 Ayo, what's poppin', crew? It's your boy J'Dinkalage Morgoone, straight outta Boomin' U, holdin' it down in these streets.
-
-I'm finna run this weak-ass draft, trackin' y'all's janky picks and slappin' 'em into the Google Sheet on straight auto, no cap, fam.
-
-**COMMANDS FOR ALL MY DAWGS:**
-
-Listen up, 'specially if you was dodgin' class with more teachers than homies or rollin' up in that short bus. Y'all better lock in for these commands when we draftin':
-
-`!draft [Player Name]`
-This how you snatch your player, fam. Spell it like you illiterate, it's cool—bot got that fuzzy matchin' to scoop the right dude.
-*Example: `!draft christian mcafferey` still gonna bang, no stress.*
-
-`!change [Player Name]`
-Fucked up your pick? Use this to flip your last pick, but you only got a hot minute 'fore the next homie picks. Move quick, bruh.
-
-`!trade @UserA [picks] for @UserB [picks]`
-This for when you slangin' them future picks. Bot's gonna log that shit and remix the draft order on the fly.
-*Example: `!trade @Steve 25 51 for @Brenda 30`—you know the vibes.*
-
-`!whopick`
-Tells you who's holdin' up the line, 'cause some of y'all be movin' like molasses.
-
-`!ovr`
-Gives you the total pick count in this draft, keepin' shit real.
-
-`!help`
-Hit this when you lost as fuck and need the rundown again. Ain't no shame, fam.
-
-AND with the number 1 pick... Vinny selects...
-"""
-        await message.channel.send(intro)
 
 # =================================================================================
 # 9. WEB SERVER FOR RENDER HEALTH CHECKS
