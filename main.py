@@ -87,7 +87,8 @@ rbs = player_sheet.col_values(8)[3:]
 wrs = player_sheet.col_values(13)[3:]
 tes = player_sheet.col_values(18)[3:]
 kickers = player_sheet.col_values(23)[3:]
-all_players_original = qbs + rbs + wrs + tes + kickers
+defenses = player_sheet.col_values(28)[3:]
+all_players_original = qbs + rbs + wrs + tes + kickers + defenses
 
 player_dict = {name.upper(): name for name in all_players_original if name}
 print(f"Loaded {len(player_dict)} players.")

@@ -166,6 +166,25 @@ KICKERS = [
     (31, "Andre Szmyt", "CLE"), (32, "Cade York", "NYJ"),
 ]
 
+DEF = [
+    (1,  "Philadelphia Eagles", "PHI"),  (2,  "Cleveland Browns", "CLE"),
+    (3,  "San Francisco 49ers", "SF"),   (4,  "New York Jets", "NYJ"),
+    (5,  "Dallas Cowboys", "DAL"),       (6,  "Pittsburgh Steelers", "PIT"),
+    (7,  "Baltimore Ravens", "BAL"),     (8,  "Kansas City Chiefs", "KC"),
+    (9,  "Buffalo Bills", "BUF"),        (10, "Miami Dolphins", "MIA"),
+    (11, "Houston Texans", "HOU"),       (12, "Detroit Lions", "DET"),
+    (13, "New England Patriots", "NE"),  (14, "Green Bay Packers", "GB"),
+    (15, "Chicago Bears", "CHI"),        (16, "Denver Broncos", "DEN"),
+    (17, "Los Angeles Chargers", "LAC"), (18, "Tampa Bay Buccaneers", "TB"),
+    (19, "Cincinnati Bengals", "CIN"),   (20, "Minnesota Vikings", "MIN"),
+    (21, "Seattle Seahawks", "SEA"),     (22, "New Orleans Saints", "NO"),
+    (23, "Indianapolis Colts", "IND"),   (24, "Jacksonville Jaguars", "JAC"),
+    (25, "Atlanta Falcons", "ATL"),      (26, "New York Giants", "NYG"),
+    (27, "Arizona Cardinals", "ARI"),    (28, "Las Vegas Raiders", "LV"),
+    (29, "Los Angeles Rams", "LAR"),     (30, "Carolina Panthers", "CAR"),
+    (31, "Tennessee Titans", "TEN"),     (32, "Washington Commanders", "WAS"),
+]
+
 TEAMS_PER_LEAGUE = 10
 ROUNDS = 18
 DRAFT_ORDER = ["Vinayak", "Arjun", "Toby", "Vinny", "Jonathan", "Beatbug", "Kevin", "Dixon", "Kasper", "Justin"]
@@ -189,17 +208,17 @@ def update_player_board(ps):
     print("\n--- Updating Player Board ---")
 
     # The bot reads player names from these EXACT columns:
-    # QB: col C (3), RB: col H (8), WR: col M (13), TE: col R (18), K: col W (23)
+    # QB: col C (3), RB: col H (8), WR: col M (13), TE: col R (18), K: col W (23), DEF: col AB (28)
     #
     # Layout per position (6 columns per group, 5 used):
     #   Col-2: Rank  |  Col-1: Player  |  Col: (bot reads this, we put empty)
-    #   Wait - the bot reads cols 3,8,13,18,23. If we put player names there
+    #   Wait - the bot reads cols 3,8,13,18,23,28. If we put player names there
     #   and rank in col-1, the bot will read player names correctly.
     #
     # SIMPLE APPROACH: Put player names where the bot reads them.
-    #   C=QB player, H=RB player, M=WR player, R=TE player, W=K player
-    #   Rank goes one column left (B, G, L, Q, V)
-    #   Team goes one column right (D, I, N, S, X)
+    #   C=QB player, H=RB player, M=WR player, R=TE player, W=K player, AB=DEF player
+    #   Rank goes one column left (B, G, L, Q, V, AA)
+    #   Team goes one column right (D, I, N, S, X, AC)
 
     # First, NUCLEAR CLEAR: clear all of A-Z, rows 1-300
     print("  Clearing ALL existing data from Player Board...")
@@ -212,6 +231,7 @@ def update_player_board(ps):
         ("WR",  WRS,     13, 12, 14), # M=player, L=rank, N=team
         ("TE",  TES,     18, 17, 19), # R=player, Q=rank, S=team
         ("K",   KICKERS, 23, 22, 24), # W=player, V=rank, X=team
+        ("DEF", DEF,     28, 27, 29), # AB=player, AA=rank, AC=team
     ]
 
     HEADER_ROW = 3
@@ -238,7 +258,7 @@ def update_player_board(ps):
 
     # Add position labels in row 1 via batch
     label_cells = [{"range": f"{_col(c)}1", "values": [[l]]} for l, c in
-                   [("QB", 2), ("RB", 7), ("WR", 12), ("TE", 17), ("K", 22)]]
+                   [("QB", 2), ("RB", 7), ("WR", 12), ("TE", 17), ("K", 22), ("DEF", 27)]]
     ps.batch_update(label_cells, value_input_option="USER_ENTERED")
 
     print("  Player Board updated!")
