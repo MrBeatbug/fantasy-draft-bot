@@ -189,6 +189,28 @@ TEAMS_PER_LEAGUE = 10
 ROUNDS = 18
 DRAFT_ORDER = ["Vinayak", "Arjun", "Toby", "Vinny", "Jonathan", "Beatbug", "Kevin", "Dixon", "Kasper", "Justin"]
 
+TEAM_COLORS_HEX = [
+    "#E74C3C",  # Vinayak  - Red
+    "#3498DB",  # Arjun    - Blue
+    "#2ECC71",  # Toby     - Green
+    "#F39C12",  # Vinny    - Orange
+    "#9B59B6",  # Jonathan - Purple
+    "#1ABC9C",  # Beatbug  - Teal
+    "#E91E63",  # Kevin    - Pink
+    "#00BCD4",  # Dixon    - Cyan
+    "#FF9800",  # Kasper   - Amber
+    "#4CAF50",  # Justin   - Forest
+]
+
+def _hex_to_rgb(hex_color):
+    """Convert hex color (#RRGGBB) to Google Sheets RGB dict (0-1 range)."""
+    hex_color = hex_color.lstrip('#')
+    return {
+        "red": int(hex_color[0:2], 16) / 255,
+        "green": int(hex_color[2:4], 16) / 255,
+        "blue": int(hex_color[4:6], 16) / 255,
+    }
+
 
 def connect_sheets():
     creds_json_str = os.getenv("GOOGLE_CREDS_JSON")
@@ -223,6 +245,12 @@ def update_player_board(ps):
     # First, NUCLEAR CLEAR: clear all of A-Z, rows 1-300
     print("  Clearing ALL existing data from Player Board...")
     ps.batch_clear(["A1:Z300"])
+
+    # Ensure sheet has enough columns (need up to AC=29 for DEF)
+    current_cols = ps.col_count
+    if current_cols < 29:
+        print(f"  Sheet has {current_cols} columns, adding {29 - current_cols} more...")
+        ps.add_cols(29 - current_cols)
 
     # Position config: (label, data, player_col, rank_col, team_col)
     positions = [
@@ -260,6 +288,33 @@ def update_player_board(ps):
     label_cells = [{"range": f"{_col(c)}1", "values": [[l]]} for l, c in
                    [("QB", 2), ("RB", 7), ("WR", 12), ("TE", 17), ("K", 22), ("DEF", 27)]]
     ps.batch_update(label_cells, value_input_option="USER_ENTERED")
+
+    # Apply alternating green scheme to all positions (batched to avoid rate limits)
+    print("  Applying green color scheme...")
+    HEADER_GREEN = {"red": 0.20, "green": 0.55, "blue": 0.30}
+    GREEN_A = {"red": 0.91, "green": 0.96, "blue": 0.91}
+    GREEN_B = {"red": 0.78, "green": 0.90, "blue": 0.78}
+
+    formats = []
+    header_fmt = {
+        "backgroundColor": HEADER_GREEN,
+        "textFormat": {"foregroundColor": {"red": 1.0, "green": 1.0, "blue": 1.0}, "bold": True}
+    }
+    for label, players, pc, rc, tc in positions:
+        # Header row
+        for c in (rc, pc, tc):
+            formats.append({"range": f"{_col(c)}{HEADER_ROW}", "format": header_fmt})
+        # Data rows: alternating greens
+        for i in range(len(players)):
+            row = DATA_START + i
+            fmt = {"backgroundColor": GREEN_A if i % 2 == 0 else GREEN_B}
+            for c in (rc, pc, tc):
+                formats.append({"range": f"{_col(c)}{row}", "format": fmt})
+
+    # Send in batches of 100 to stay under limits
+    for j in range(0, len(formats), 100):
+        ps.batch_format(formats[j:j+100])
+        time.sleep(0.5)
 
     print("  Player Board updated!")
 
@@ -311,31 +366,51 @@ def reset_draft_board(ds):
         ds.batch_update(chunk, value_input_option="USER_ENTERED")
         time.sleep(0.3)  # avoid rate limit
 
-    # ---- Apply formatting ----
+    # ---- Apply formatting (batched) ----
     print("  Applying formatting...")
     time.sleep(1.0)
 
-    ds.format(f"D5:M{4 + ROUNDS * 2}", {
-        "backgroundColor": {"red": 0.85, "green": 0.85, "blue": 0.85}
-    })
-    time.sleep(0.5)
+    board_formats = []
 
-    ds.format(f"D3:M4", {
-        "backgroundColor": {"red": 0.2, "green": 0.2, "blue": 0.4},
-        "textFormat": {
-            "foregroundColor": {"red": 1.0, "green": 1.0, "blue": 1.0},
-            "bold": True,
-            "fontSize": 10,
-        },
-        "horizontalAlignment": "CENTER",
+    # Base grey for empty draft cells
+    board_formats.append({
+        "range": f"D5:M{4 + ROUNDS * 2}",
+        "format": {"backgroundColor": {"red": 0.85, "green": 0.85, "blue": 0.85}}
     })
+
+    # Team-colored headers (row 3) and pick numbers (row 4)
+    print("  Building team color formats...")
+    for i in range(TEAMS_PER_LEAGUE):
+        if i < len(TEAM_COLORS_HEX):
+            color = _hex_to_rgb(TEAM_COLORS_HEX[i])
+            col_letter = _col(SC + i)
+            # Header cell
+            board_formats.append({
+                "range": f"{col_letter}3",
+                "format": {"backgroundColor": color, "textFormat": {"foregroundColor": {"red": 1.0, "green": 1.0, "blue": 1.0}, "bold": True, "fontSize": 10}, "horizontalAlignment": "CENTER"}
+            })
+            # Pick number cell (lightly tinted)
+            pick_color = {"red": min(color["red"] + 0.15, 1.0), "green": min(color["green"] + 0.15, 1.0), "blue": min(color["blue"] + 0.15, 1.0)}
+            board_formats.append({
+                "range": f"{col_letter}4",
+                "format": {"backgroundColor": pick_color, "textFormat": {"foregroundColor": {"red": 0.0, "green": 0.0, "blue": 0.0}, "bold": True, "fontSize": 10}, "horizontalAlignment": "CENTER"}
+            })
+
+    # Send in batches
+    for j in range(0, len(board_formats), 50):
+        ds.batch_format(board_formats[j:j+50])
+        time.sleep(0.5)
 
     print(f"  Draft Board reset! {len(full)} total picks ({ROUNDS} rounds x {TEAMS_PER_LEAGUE} teams)")
 
 
 def _col(n):
-    """Convert column number to letter (1=A, 2=B, ..., 26=Z)."""
-    return chr(64 + n) if 1 <= n <= 26 else "?"
+    """Convert column number to letter(s) (1=A, 2=B, ..., 26=Z, 27=AA, 28=AB, ...)."""
+    result = ""
+    while n > 0:
+        n, rem = divmod(n - 1, 26)
+        result = chr(65 + rem) + result
+    return result
 
 
 def main():

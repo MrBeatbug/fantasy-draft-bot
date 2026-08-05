@@ -93,6 +93,41 @@ all_players_original = qbs + rbs + wrs + tes + kickers + defenses
 player_dict = {name.upper(): name for name in all_players_original if name}
 print(f"Loaded {len(player_dict)} players.")
 
+# Build player location map for Player Board formatting
+# Maps player name (upper) -> (row, rank_col, player_col, team_col)
+DATA_START = 4  # Player data starts at row 4
+player_locations = {}
+positions_info = [
+    (qbs,      3,  2,  4),   # QB:  player=C(3),  rank=B(2),  team=D(4)
+    (rbs,      8,  7,  9),   # RB:  player=H(8),  rank=G(7),  team=I(9)
+    (wrs,     13, 12, 14),   # WR:  player=M(13), rank=L(12), team=N(14)
+    (tes,     18, 17, 19),   # TE:  player=R(18), rank=Q(17), team=S(19)
+    (kickers, 23, 22, 24),   # K:   player=W(23), rank=V(22), team=X(24)
+    (defenses, 28, 27, 29),  # DEF: player=AB(28),rank=AA(27),team=AC(29)
+]
+for players, pcol, rcol, tcol in positions_info:
+    for i, name in enumerate(players):
+        if name:
+            player_locations[name.upper()] = (DATA_START + i, rcol, pcol, tcol)
+
+DR_COLOR = {"red": 0.95, "green": 0.75, "blue": 0.75}    # Light red for drafted
+GREEN_A = {"red": 0.91, "green": 0.96, "blue": 0.91}      # Light green (even rows)
+GREEN_B = {"red": 0.78, "green": 0.90, "blue": 0.78}      # Slightly darker (odd rows)
+
+def _avail_color(row):
+    """Return the alternating green color for a given Player Board row."""
+    return GREEN_A if (row - DATA_START) % 2 == 0 else GREEN_B
+
+def mark_player_on_board(name: str, color: dict):
+    """Color a player's row (rank, name, team) on the Player Board."""
+    loc = player_locations.get(name.upper())
+    if not loc:
+        return
+    row, rc, pc, tc = loc
+    ranges = [f"{_col_letter(c)}{row}" for c in (rc, pc, tc)]
+    for r in ranges:
+        player_sheet.format(r, {"backgroundColor": color})
+
 
 DRAFT_MANAGER_IDS = []
 manager_ids_str = os.getenv("DRAFT_MANAGER_IDS")
@@ -103,6 +138,43 @@ if manager_ids_str:
         print("ERROR: Could not parse DRAFT_MANAGER_IDS from .env file.")
 else:
     print("ERROR: DRAFT_MANAGER_IDS not found in .env file.")
+
+# Team colors (hex -> RGB dict for Google Sheets formatting)
+TEAM_COLORS_HEX = [
+    "#E74C3C",  # Vinayak  - Red
+    "#3498DB",  # Arjun    - Blue
+    "#2ECC71",  # Toby     - Green
+    "#F39C12",  # Vinny    - Orange
+    "#9B59B6",  # Jonathan - Purple
+    "#1ABC9C",  # Beatbug  - Teal
+    "#E91E63",  # Kevin    - Pink
+    "#00BCD4",  # Dixon    - Cyan
+    "#FF9800",  # Kasper   - Amber
+    "#4CAF50",  # Justin   - Forest
+]
+
+def _hex_to_rgb(hex_color):
+    """Convert hex color (#RRGGBB) to Google Sheets RGB dict (0-1 range)."""
+    hex_color = hex_color.lstrip('#')
+    return {
+        "red": int(hex_color[0:2], 16) / 255,
+        "green": int(hex_color[2:4], 16) / 255,
+        "blue": int(hex_color[4:6], 16) / 255,
+    }
+
+# Map Discord ID -> color dict for lookup during draft picks
+TEAM_COLORS_MAP = {}
+for i, mid in enumerate(DRAFT_MANAGER_IDS):
+    if i < len(TEAM_COLORS_HEX):
+        TEAM_COLORS_MAP[mid] = _hex_to_rgb(TEAM_COLORS_HEX[i])
+
+def _col_letter(n):
+    """Convert column number to letter(s) (1=A, 2=B, ..., 26=Z, 27=AA, ...)."""
+    result = ""
+    while n > 0:
+        n, rem = divmod(n - 1, 26)
+        result = chr(65 + rem) + result
+    return result
 
 initial_draft_order = [get_mention_from_id(id) for id in DRAFT_MANAGER_IDS]
 
@@ -248,6 +320,10 @@ async def on_message(message):
             drafted = [x.upper() for x in drafted_from_sheet if x]
             tradecount = len(draft_board_sheet.col_values(19)[2:])
 
+            # Mark all previously drafted players as red on Player Board
+            for name in drafted:
+                mark_player_on_board(name, DR_COLOR)
+
             # Read draft order from sheet
             sheet_order = draft_board_sheet.col_values(20)[2:]
 
@@ -317,7 +393,15 @@ Hello! I'm the draft bot. Here are my commands:
             draft_board_sheet.update_cell(picknum + 2, 18, official_name)
             draft_board_sheet.update_cell(3, 17, picknum + 1)
             drafted.append(official_name.upper())
-            
+
+            # Color the cell with the drafting team's color
+            drafter_color = TEAM_COLORS_MAP.get(message.author.id, {"red": 0.85, "green": 0.85, "blue": 0.85})
+            cell_range = f"{_col_letter(col)}{row}"
+            draft_board_sheet.format(cell_range, {"backgroundColor": drafter_color})
+
+            # Mark player as drafted (red) on Player Board
+            mark_player_on_board(official_name, DR_COLOR)
+
             round_num = ((picknum - 1) // TEAMS_PER_LEAGUE) + 1
             pick_in_round = ((picknum - 1) % TEAMS_PER_LEAGUE) + 1
             await message.channel.send(f"**R{round_num}.{pick_in_round} (#__{picknum}__):** {message.author.mention} selects **{official_name}**!")
@@ -378,6 +462,16 @@ May the fantasy gods keep it 💯 and bless your squad. Good luck, homies! 🏆�
             drafted[-1] = new_official_name.upper()
             draft_board_sheet.update_cell(prow, pcol, new_official_name)
             draft_board_sheet.update_cell(picknum + 1, 18, new_official_name)
+
+            # Re-apply team color to the changed cell
+            changer_color = TEAM_COLORS_MAP.get(message.author.id, {"red": 0.85, "green": 0.85, "blue": 0.85})
+            draft_board_sheet.format(f"{_col_letter(pcol)}{prow}", {"backgroundColor": changer_color})
+
+            # Swap Player Board colors: old back to alternating green, new to red
+            old_loc = player_locations.get(old_official_name.upper())
+            old_color = _avail_color(old_loc[0]) if old_loc else GREEN_A
+            mark_player_on_board(old_official_name, old_color)
+            mark_player_on_board(new_official_name, DR_COLOR)
             await message.channel.send(f"✅ **Pick Changed!** {message.author.mention} has updated their pick from **{old_official_name}** to **{new_official_name}**.")
             on_the_clock = draft_order_mentions[picknum - 1]
             await message.channel.send(f"The clock has not advanced. {on_the_clock}, you are still on the clock.")
