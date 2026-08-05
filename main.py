@@ -340,16 +340,18 @@ async def on_message(message):
 
             if picknum > 1:
                 picks_done = picknum - 1
-                row = 5 + (picks_done // TEAMS_PER_LEAGUE)
+                round_idx = picks_done // TEAMS_PER_LEAGUE
+                row = 5 + (round_idx * 2)
                 pick_in_round = picks_done % TEAMS_PER_LEAGUE
-                if (row - 5) % 2 == 0: col = start_col + pick_in_round
+                if round_idx % 2 == 0: col = start_col + pick_in_round
                 else: col = end_col - pick_in_round
             else: row, col = 5, 4
             if picknum > 1:
                 prev_pick_num = picknum - 2
-                prow = 5 + (prev_pick_num // TEAMS_PER_LEAGUE)
+                prev_round_idx = prev_pick_num // TEAMS_PER_LEAGUE
+                prow = 5 + (prev_round_idx * 2)
                 prev_pick_in_round = prev_pick_num % TEAMS_PER_LEAGUE
-                if (prow - 5) % 2 == 0: pcol = start_col + prev_pick_in_round
+                if prev_round_idx % 2 == 0: pcol = start_col + prev_pick_in_round
                 else: pcol = end_col - prev_pick_in_round
             else: prow, pcol = 0, 0
 
@@ -430,9 +432,10 @@ May the fantasy gods keep it 💯 and bless your squad. Good luck, homies! 🏆�
                 return
                 
             picks_done = picknum - 1
-            row = 5 + (picks_done // TEAMS_PER_LEAGUE)
+            round_idx = picks_done // TEAMS_PER_LEAGUE
+            row = 5 + (round_idx * 2)
             pick_in_round_next = picks_done % TEAMS_PER_LEAGUE
-            if (row - 5) % 2 == 0: col = start_col + pick_in_round_next
+            if round_idx % 2 == 0: col = start_col + pick_in_round_next
             else: col = end_col - pick_in_round_next
             
             round_num_next = ((picknum - 1) // TEAMS_PER_LEAGUE) + 1
